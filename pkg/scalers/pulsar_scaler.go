@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/oauth2/clientcredentials"
+
 	"github.com/go-logr/logr"
 	"k8s.io/api/autoscaling/v2beta2"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -37,6 +39,12 @@ type pulsarMetadata struct {
 	cert      string
 	key       string
 	ca        string
+
+	// OAuth
+	oauthTokenURI string
+	grantType     string
+	scopes        []string
+	clientID      string
 
 	statsURL    string
 	metricName  string
@@ -151,6 +159,19 @@ func parsePulsarMetadata(config *ScalerConfig) (pulsarMetadata, error) {
 		return meta, errors.New("no subscription given")
 	}
 
+	if config.TriggerMetadata["oauthTokenURI"] != "" {
+		meta.oauthTokenURI = config.TriggerMetadata["oauthTokenURI"]
+	}
+	if config.TriggerMetadata["grantType"] != "" {
+		meta.grantType = config.TriggerMetadata["grantType"]
+	}
+	if config.TriggerMetadata["clientID"] != "" {
+		meta.clientID = config.TriggerMetadata["clientID"]
+	}
+	if config.TriggerMetadata["scope"] != "" {
+		meta.scopes = strings.Split(config.TriggerMetadata["scope"], " ")
+	}
+
 	meta.metricName = fmt.Sprintf("%s-%s-%s", "pulsar", meta.topic, meta.subscription)
 
 	meta.activationMsgBacklogThreshold = 0
@@ -202,7 +223,18 @@ func (s *pulsarScaler) GetStats(ctx context.Context) (*pulsarStats, error) {
 		return nil, fmt.Errorf("error requesting stats from url: %s", err)
 	}
 
-	res, err := s.client.Do(req)
+	client := s.client
+	if s.metadata.grantType == "client_credentials" {
+		config := clientcredentials.Config{
+			ClientID:     s.metadata.clientID,
+			ClientSecret: "notRequired",
+			TokenURL:     s.metadata.oauthTokenURI,
+			Scopes:       s.metadata.scopes,
+		}
+		client = config.Client(context.Background())
+	}
+
+	res, err := client.Do(req)
 	if res == nil || err != nil {
 		return nil, fmt.Errorf("error requesting stats from url: %s", err)
 	}
