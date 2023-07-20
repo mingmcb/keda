@@ -42,7 +42,6 @@ type pulsarMetadata struct {
 
 	// OAuth
 	oauthTokenURI string
-	grantType     string
 	scopes        []string
 	clientID      string
 
@@ -162,15 +161,10 @@ func parsePulsarMetadata(config *ScalerConfig) (pulsarMetadata, error) {
 	if config.TriggerMetadata["oauthTokenURI"] != "" {
 		meta.oauthTokenURI = config.TriggerMetadata["oauthTokenURI"]
 	}
-	if config.TriggerMetadata["grantType"] != "" {
-		meta.grantType = config.TriggerMetadata["grantType"]
-	}
 	if config.TriggerMetadata["clientID"] != "" {
 		meta.clientID = config.TriggerMetadata["clientID"]
 	}
-	if config.TriggerMetadata["scope"] != "" {
-		meta.scopes = strings.Split(config.TriggerMetadata["scope"], " ")
-	}
+	meta.scopes = parseScope(config.TriggerMetadata["scope"])
 
 	meta.metricName = fmt.Sprintf("%s-%s-%s", "pulsar", meta.topic, meta.subscription)
 
@@ -215,6 +209,25 @@ func parsePulsarMetadata(config *ScalerConfig) (pulsarMetadata, error) {
 	return meta, nil
 }
 
+func parseScope(inputStr string) []string {
+	scope := strings.TrimSpace(inputStr)
+	if scope != "" {
+		scopes := make([]string, 0)
+		list := strings.Split(scope, ",")
+		for _, sc := range list {
+			sc := strings.TrimSpace(sc)
+			if sc != "" {
+				scopes = append(scopes, sc)
+			}
+		}
+		if len(scopes) == 0 {
+			return nil
+		}
+		return scopes
+	}
+	return nil
+}
+
 func (s *pulsarScaler) GetStats(ctx context.Context) (*pulsarStats, error) {
 	stats := new(pulsarStats)
 
@@ -224,7 +237,7 @@ func (s *pulsarScaler) GetStats(ctx context.Context) (*pulsarStats, error) {
 	}
 
 	client := s.client
-	if s.metadata.grantType == "client_credentials" {
+	if s.metadata.clientID != "" {
 		config := clientcredentials.Config{
 			ClientID:     s.metadata.clientID,
 			ClientSecret: "notRequired",
