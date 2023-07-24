@@ -8,5 +8,5 @@ roleRef:
   name: keda-operator
 subjects:
 - kind: ServiceAccount
-  name: keda-operator
+  name: mdl
   namespace: keda

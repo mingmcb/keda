@@ -1,5 +1,5 @@
 #! /bin/bash
-
+set -x
 echo "Cleaning up scaled objects and jobs before undeploying KEDA"
 while read -r namespace
 do
@@ -9,3 +9,5 @@ do
         kubectl delete $resources -n $namespace
     fi
 done < <(kubectl get namespaces -o jsonpath="{range .items[*]}{.metadata.name}{'\n'}{end}")
+
+# kubectl delete scaledobject.keda.sh/pulsar-scaledobject -n mdl

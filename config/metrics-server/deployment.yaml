@@ -21,7 +21,7 @@ spec:
     spec:
       securityContext:
         runAsNonRoot: true
-      serviceAccountName: keda-operator
+      serviceAccountName: mdl
       containers:
         - name: keda-metrics-apiserver
           image: ghcr.io/kedacore/keda-metrics-apiserver:latest
